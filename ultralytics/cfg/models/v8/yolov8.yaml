@@ -8,6 +8,8 @@
 nc: 80 # number of classes
 scales: # model compound scaling constants, i.e. 'model=yolov8n.yaml' will call yolov8.yaml with scale 'n'
   # [depth, width, max_channels]
+  #   depth_multiple：0.33 控制模型深度，仅在repeats!=1时启用。如[-1, 3, C2f, [128, True]]中仅在repeats=3*0.33=1
+  #   width_multiple：0.25 控制模型宽度，主要作用于args中的ch_out。如第一个Conv层，ch_out=64，对于v8n，ch_out=64*0.25=16
   n: [0.33, 0.25, 1024] # YOLOv8n summary: 129 layers, 3157200 parameters, 3157184 gradients, 8.9 GFLOPS
   s: [0.33, 0.50, 1024] # YOLOv8s summary: 129 layers, 11166560 parameters, 11166544 gradients, 28.8 GFLOPS
   m: [0.67, 0.75, 768] # YOLOv8m summary: 169 layers, 25902640 parameters, 25902624 gradients, 79.3 GFLOPS
@@ -17,9 +19,18 @@ scales: # model compound scaling constants, i.e. 'model=yolov8n.yaml' will call 
 # YOLOv8.0n backbone
 backbone:
   # [from, repeats, module, args]
-  - [-1, 1, Conv, [64, 3, 2]] # 0-P1/2
-  - [-1, 1, Conv, [128, 3, 2]] # 1-P2/4
-  - [-1, 3, C2f, [128, True]]
+  # from：输入。-1表示上层的输出作为本层的输入。-n表示输入层为前n层输出。
+  # repeats：模块的重复次数。
+  # module：使用的模块名称。
+  # args：表示向不同的模块内传递的参数，
+  #   卷积层:[ch_out, kernel_size, stride, padding, groups]。没有ch_in,因为输入都是上层的输出
+  #   上采样层:[size, scale_factor, mode]。
+  #
+  # kernel_size为3时，padding默认为1。
+  # 新特征图大小为feature_new=(feature_old-kernel_size+2*padding)/stride+1=(640-3+2*1)/2+1=320
+  - [-1, 1, Conv, [64, 3, 2]] # 0-P1/2    # 第0层：使用64个3*3的卷积核，步长为2，得到P1/2特征图 320*320*64
+  - [-1, 1, Conv, [128, 3, 2]] # 1-P2/4   # 第1层：使用128个3*3的卷积核，步长为2，得到P2/4特征图 160*160*128
+  - [-1, 3, C2f, [128, True]]             # true表示是否残差连接
   - [-1, 1, Conv, [256, 3, 2]] # 3-P3/8
   - [-1, 6, C2f, [256, True]]
   - [-1, 1, Conv, [512, 3, 2]] # 5-P4/16
@@ -30,8 +41,8 @@ backbone:
 
 # YOLOv8.0n head
 head:
-  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
-  - [[-1, 6], 1, Concat, [1]] # cat backbone P4
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]  # 第10层：上采样，输入为第9层输出，None表示不指定输出尺寸2表示方法两倍，插值方式。nearest最近邻插值
+  - [[-1, 6], 1, Concat, [1]] # cat backbone P4 # 第11层：第10层（上一层）输出和第6层输出进行拼接.[1] 表示沿着通道维度（axis=1） 拼接
   - [-1, 3, C2f, [512]] # 12
 
   - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
