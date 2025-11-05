@@ -69,7 +69,8 @@ def test_model_profile():
     """Test profiling of the YOLO model with `profile=True` to assess performance and resource usage."""
     from ultralytics.nn.tasks import DetectionModel
 
-    model = DetectionModel()  # build model
+    # model = DetectionModel()  # build model
+    model = DetectionModel(cfg="yolov8n.yaml")  # 指定模型配置文件
     im = torch.randn(1, 3, 64, 64)  # requires min imgsz=64
     _ = model.predict(im, profile=True)
 
