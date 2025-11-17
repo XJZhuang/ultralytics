@@ -612,8 +612,9 @@ class Model(torch.nn.Module):
         custom = {"rect": True}  # method defaults
         args = {**self.overrides, **custom, **kwargs, "mode": "val"}  # highest priority args on the right
 
+        # 例如 yolo.detect.DetectionValidator
         validator = (validator or self._smart_load("validator"))(args=args, _callbacks=self.callbacks)
-        validator(model=self.model)
+        validator(model=self.model)     # ultralytics.engine.validator.BaseValidator.__call__
         self.metrics = validator.metrics
         return validator.metrics
 
@@ -1055,7 +1056,7 @@ class Model(torch.nn.Module):
             >>> trainer_class = model._smart_load("trainer")
         """
         try:
-            return self.task_map[self.task][key]
+            return self.task_map[self.task][key]    # 实际调用的是 ultralytics.models.yolo.model.YOLO.task_map
         except Exception as e:
             name = self.__class__.__name__
             mode = inspect.stack()[1][3]  # get the function name.

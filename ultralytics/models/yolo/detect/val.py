@@ -199,9 +199,9 @@ class DetectionValidator(BaseValidator):
 
             # Save
             if self.args.save_json or self.args.save_txt:
-                predn_scaled = self.scale_preds(predn, pbatch)
+                predn_scaled = self.scale_preds(predn, pbatch)  # 猜测是：从640*640缩放到原图大小的坐标
             if self.args.save_json:
-                self.pred_to_json(predn_scaled, pbatch)
+                self.pred_to_json(predn_scaled, pbatch)     # 记录到 predictions.json 文件中（不断调用detect-->pose，如果有pose）
             if self.args.save_txt:
                 self.save_one_txt(
                     predn_scaled,

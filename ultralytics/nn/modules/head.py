@@ -191,7 +191,7 @@ class Detect(nn.Module):
     @staticmethod
     def postprocess(preds: torch.Tensor, max_det: int, nc: int = 80) -> torch.Tensor:
         """Post-process YOLO model predictions.
-
+        # TODO 回归分支没有置信度？？？
         Args:
             preds (torch.Tensor): Raw predictions with shape (batch_size, num_anchors, 4 + nc) with last dimension
                 format [x, y, w, h, class_probs].
@@ -949,7 +949,7 @@ class RTDETRDecoder(nn.Module):
         # Input projection and embedding
         feats, shapes = self._get_encoder_input(x)
 
-        # Prepare denoising training
+        # Prepare denoising training    如果不是 training 直接返回None
         dn_embed, dn_bbox, attn_mask, dn_meta = get_cdn_group(
             batch,
             self.nc,

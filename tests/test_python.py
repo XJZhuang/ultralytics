@@ -70,7 +70,8 @@ def test_model_profile():
     from ultralytics.nn.tasks import DetectionModel
 
     # model = DetectionModel()  # build model
-    model = DetectionModel(cfg="yolov8n.yaml")  # 指定模型配置文件
+    model = DetectionModel(cfg="yolov8s.yaml")  # 指定模型配置文件
+    # model = DetectionModel(cfg="rtdetr-resnet18.yaml")
     im = torch.randn(1, 3, 64, 64)  # requires min imgsz=64
     _ = model.predict(im, profile=True)
 
