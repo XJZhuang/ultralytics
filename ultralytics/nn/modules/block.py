@@ -73,12 +73,16 @@ class DFL(nn.Module):
         self.conv = nn.Conv2d(c1, 1, 1, bias=False).requires_grad_(False)
         x = torch.arange(c1, dtype=torch.float)
         self.conv.weight.data[:] = nn.Parameter(x.view(1, c1, 1, 1))
-        self.c1 = c1
+        self.c1 = c1    # 16
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply the DFL module to input tensor and return transformed output."""
         b, _, a = x.shape  # batch, channels, anchors
-        return self.conv(x.view(b, 4, self.c1, a).transpose(2, 1).softmax(1)).view(b, 4, a)
+        return self.conv(
+            x.view(b, 4, self.c1, a)    # [1, 64, 6300] -> [1, 4, 16, 6300]
+                .transpose(2, 1)        # ->[1, 16, 4, 6300]
+                .softmax(1)             # ->[1, 16, 4, 6300] 形状不变，得到概率分布
+        ).view(b, 4, a)         # [1, 1, 4, 6300]->[1, 4, 6300] 卷积层对概率分布加权求和，得到连续的偏移量
         # return self.conv(x.view(b, self.c1, 4, a).softmax(1)).view(b, 4, a)
 
 

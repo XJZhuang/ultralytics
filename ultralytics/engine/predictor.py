@@ -198,7 +198,7 @@ class BasePredictor:
             and (self.model.pt or (getattr(self.model, "dynamic", False) and not self.model.imx)),
             stride=self.model.stride,
         )
-        return [letterbox(image=x) for x in im]
+        return [letterbox(image=x) for x in im]     # 对一个 batch 的每一张图片进行 LetterBox 填充
 
     def postprocess(self, preds, img, orig_imgs):
         """Post-process predictions for an image and return them."""
@@ -315,6 +315,8 @@ class BasePredictor:
                 ops.Profile(device=self.device),
                 ops.Profile(device=self.device),
             )
+
+            # ???
             self.run_callbacks("on_predict_start")
             for self.batch in self.dataset:
                 self.run_callbacks("on_predict_batch_start")
@@ -322,6 +324,7 @@ class BasePredictor:
 
                 # Preprocess
                 with profilers[0]:
+                    # resize 640等操作
                     im = self.preprocess(im0s)
 
                 # Inference

@@ -25,8 +25,8 @@ def get_corresponding_image_paths(image_dir: str, base_name: str) -> List[str]:
         可能存在的图片文件路径列表
     """
     # 支持的图片后缀
-    # IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff'}
-    IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png'}
+    IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff'}
+    # IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png'}
     return [
         os.path.join(image_dir, f"{base_name}{ext}")
         for ext in IMAGE_SUFFIXES
@@ -122,15 +122,18 @@ def main():
     # 配置基础路径和分组
     # root_path = r"D:\1_Python\datasets\switchgear"
     # root_path = r"D:\1_Python\datasets\knobs"
-    root_path = r"D:\1_Python\datasets\liquids"
-    # label_path = "labels"
-    label_path = "labels_json"
+    # root_path = r"D:\1_Python\datasets\liquids"
+    root_path = r"D:\1_Python\datasets\fire_security"
+    label_path = "labels"
+    # label_path = "labels_json"
     dataset_type = "train"
     # dataset_type = "val"
     # groups = [ ]  # 要处理的分组
     groups = ['01', ]  # 要处理的分组
     # groups = ['01', '02', '03', '04', '05']  # 要处理的分组
-    suffix = ".txt" if label_path == "labels" else ".json"
+    # suffix = ".txt" if label_path == "labels" else ".json"
+    # suffix = ".txt"
+    suffix = ".json"
     total_all = 0
     moved_all = 0
 
@@ -140,11 +143,12 @@ def main():
         print(f"\n----- 处理分组 {group} -----")
 
         # 构建该分组的图片、标签目录和目标目录路径
-        image_dir = os.path.join(root_path, "images", f"{dataset_type}{group}")
-        # image_dir = os.path.join(root_path, "images", f"val{group}")
-        label_dir = os.path.join(root_path, label_path, f"{dataset_type}{group}")
-        # label_dir = os.path.join(root_path, "labels", f"val{group}")
-        dest_dir = os.path.join(root_path, label_path, f"deleted{group}")
+        # image_dir = os.path.join(root_path, "images", f"{dataset_type}{group}")
+        image_dir = r"D:\1_Python\datasets\fire_security\images\train03"
+        # label_dir = os.path.join(root_path, label_path, f"{dataset_type}{group}")
+        label_dir = r"D:\1_Python\datasets\fire_security\labels_labelme\train03"
+        # dest_dir = os.path.join(root_path, label_path, f"deleted{group}")
+        dest_dir = r"D:\1_Python\datasets\fire_security\labels_labelme\delete_train03"
 
         # 处理当前分组
         total, moved = move_orphaned_label_files(image_dir, label_dir, dest_dir, label_suffix=suffix)

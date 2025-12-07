@@ -6,7 +6,7 @@
 @IDE     ：PyCharm 
 @Author  ：zhuangxujun
 @Date    ：2024/7/19 16:49 
-@explain : 划分数据集为 训练集 和 验证集
+@explain : 划分数据集为 训练集 和 验证集。（同时划分图片和标签）
 '''
 
 import os
@@ -113,10 +113,11 @@ def main():
     # 配置参数
     # root_path = r'D:\1_Python\datasets\switchgear'
     # root_path = r'D:\1_Python\datasets\knobs'
-    root_path = r'D:\1_Python\datasets\liquids'
+    # root_path = r'D:\1_Python\datasets\liquids'
+    root_path = r'D:\1_Python\datasets\fire_security'
     # group_index = ['01', '04']
-    # group_index = ['01', '02', '03', '04']  # 分组索引
-    group_index = ['01']  # 分组索引
+    group_index = ['01', '03', '04']  # 分组索引
+    # group_index = ['01']  # 分组索引
     val_ratio = 0.2  # 验证集比例
 
     for group in group_index:

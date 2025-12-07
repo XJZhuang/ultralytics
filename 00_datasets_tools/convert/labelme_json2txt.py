@@ -16,8 +16,10 @@ from pathlib import Path  # 更现代的路径处理
 
 # 目标检测类别映射（key：LabelMe标注名，value：YOLO类别ID）
 BBOX_CLASS_MAP: Dict[str, int] = {
-    # 'knob': 0,
-    'liquid': 0,
+    'person': 0,
+    'head': 1,
+    'helmet': 2,
+    'cigarette': 3
 }
 
 # 关键点类别顺序（需与LabelMe标注的"label"字段一致，决定TXT中关键点的输出顺序）
@@ -27,25 +29,20 @@ KEYPOINT_CLASS_ORDER: List[str] = ['edge_point']
 # 归一化坐标保留小数位数（YOLO常用5位，可调整）
 DECIMAL_PLACES: int = 6
 
-# 关键点可见性映射（LabelMe的"description"字段值 → YOLO关键点可见性标签）0: 不可见, 1: 遮挡, 2: 可见（遵循YOLO keypoint格式规范）
-VISIBILITY_MAP: Dict[str, int] = {
-    '': 2,  # 空备注视为"可见"
-    '0': 0,  # 自定义"不可见"标记
-    '1': 1,  # 自定义"遮挡"标记
-    '2': 2  # 自定义"可见"标记
-}
+# 属性映射：bool值→整数（false=0，true=1）
+ATTR_MAP: Dict[bool, int] = {False: 0, True: 1}
 
 
 def convert_json_to_yolo_txt(
         json_file_path: str,
         output_txt_dir: str,
         bbox_class_map: Dict[str, int] = BBOX_CLASS_MAP,
-        keypoint_order: List[str] = KEYPOINT_CLASS_ORDER,
         decimal_places: int = DECIMAL_PLACES
 ) -> Tuple[bool, str]:
     """
     将单个LabelMe JSON标注文件转换为YOLO（检测+关键点）格式TXT文件
-
+    - 普通类别（person/helmet/cigarette）：class_id x_center y_center width height
+    - head类别：class_id x_center y_center width height attr_smoke attr_no_helmet
     参数:
         json_file_path: LabelMe JSON文件的完整路径
         output_txt_dir: 输出TXT文件的目标目录
@@ -83,43 +80,20 @@ def convert_json_to_yolo_txt(
         if img_width <= 0 or img_height <= 0:
             return False, f"图像尺寸异常（宽：{img_width}，高：{img_height}）"
 
-        # 4. 预处理：提取所有关键点标注（避免重复遍历shapes，提升效率）
-        # 结构：List[Dict] → 每个元素包含关键点的坐标、标签、可见性
-        keypoints_list: List[Dict] = []
-        for ann in labelme_data['shapes']:
-            if ann.get('shape_type') != 'point':
-                continue  # 只保留"point"类型标注
-
-            # 校验关键点必要信息
-            if 'points' not in ann or len(ann['points']) != 1:
-                print("跳过无效关键点（如多点标注）")
-                continue  #
-            if 'label' not in ann:
-                print("跳过无标签的关键点")
-                continue  #
-
-            kp_x, kp_y = ann['points'][0]
-            keypoints_list.append({
-                'x': float(kp_x),  # 保留float，避免整数截断误差
-                'y': float(kp_y),
-                'label': ann['label'],
-                'visibility': VISIBILITY_MAP.get(ann.get('description', ''), 0)  # 默认为"不可见"
-            })
-
-        # 5. 处理矩形框标注，生成YOLO格式内容
+        # 4. 处理矩形框标注，生成YOLO格式内容（移除关键点无关逻辑）
         yolo_content = []
         for bbox_ann in labelme_data['shapes']:
             if bbox_ann.get('shape_type') != 'rectangle':
                 continue  # 只处理"rectangle"类型检测框
 
             # 校验检测框必要信息
-            if 'label' not in bbox_ann or bbox_ann['label'] not in bbox_class_map:
-                return False, f"边界框标签未定义：{bbox_ann.get('label')}（仅支持{list(bbox_class_map.keys())}）"
+            label = bbox_ann.get('label')
+            if not label or label not in bbox_class_map:
+                return False, f"边界框标签未定义：{label}（仅支持{list(bbox_class_map.keys())}）"
             if 'points' not in bbox_ann or len(bbox_ann['points']) != 2:
                 return False, f"边界框坐标异常：{bbox_ann['points']}（需2个顶点）"
 
-            # 5.1 计算检测框归一化坐标（YOLO格式：center_x, center_y, width, height）
-            # 提取矩形框两个顶点坐标（无需转int，避免精度丢失）
+            # 4.1 计算检测框归一化坐标（YOLO格式：center_x, center_y, width, height）
             (x1, y1), (x2, y2) = bbox_ann['points']
             # 确保坐标顺序正确（左上角→右下角）
             bbox_left = min(x1, x2)
@@ -127,51 +101,34 @@ def convert_json_to_yolo_txt(
             bbox_top = min(y1, y2)
             bbox_bottom = max(y1, y2)
 
-            # 计算边界框的 中心坐标 和 宽高 （归一化）
-            center_x = (bbox_left + bbox_right) / 2 / img_width
-            center_y = (bbox_top + bbox_bottom) / 2 / img_height
-            bbox_w = (bbox_right - bbox_left) / img_width
-            bbox_h = (bbox_bottom - bbox_top) / img_height
+            # 归一化计算（保留decimal_places位小数）
+            center_x = round((bbox_left + bbox_right) / 2 / img_width, decimal_places)
+            center_y = round((bbox_top + bbox_bottom) / 2 / img_height, decimal_places)
+            bbox_w = round((bbox_right - bbox_left) / img_width, decimal_places)
+            bbox_h = round((bbox_bottom - bbox_top) / img_height, decimal_places)
 
-            # 5.2 匹配当前检测框内的关键点
-            bbox_keypoints = {}  # 存储当前框内的关键点（key：关键点标签，value：(x_norm, y_norm, visibility)）
-            for kp in keypoints_list:
-                # 判断关键点是否在检测框内（边缘不算，避免跨框误匹配）
-                if (bbox_left < kp['x'] < bbox_right) and (bbox_top < kp['y'] < bbox_bottom):
-                    if kp['label'] in keypoint_order:
-                        # 关键点坐标归一化
-                        kp_x_norm = kp['x'] / img_width
-                        kp_y_norm = kp['y'] / img_height
-                        bbox_keypoints[kp['label']] = (kp_x_norm, kp_y_norm, kp['visibility'])
-                    else:
-                        print(f"⚠️ 关键点标签不匹配 {kp['label']}")
-
-            # 5.3 组装YOLO行（检测框 + 按顺序排列的关键点）
-            # 检测框部分：类别ID + 中心坐标 + 宽高
-            yolo_line = [str(bbox_class_map[bbox_ann['label']])]
+            # 4.2 组装YOLO行（核心：区分head类和其他类）
+            yolo_line = [str(bbox_class_map[label])]  # 先添加类别ID
+            # 添加基础坐标字段
             yolo_line.extend([
                 f"{center_x:.{decimal_places}f}",
                 f"{center_y:.{decimal_places}f}",
                 f"{bbox_w:.{decimal_places}f}",
                 f"{bbox_h:.{decimal_places}f}"
             ])
-            # 关键点部分：按预设顺序添加（无关键点则补0 0 0）
-            for kp_label in keypoint_order:     # 遍历预先定义的关键点类别
-                if kp_label in bbox_keypoints:  # 遍历实际标注的关键点类别
-                    kp_x, kp_y, kp_vis = bbox_keypoints[kp_label]
-                    yolo_line.extend([
-                        f"{kp_x:.{decimal_places}f}",
-                        f"{kp_y:.{decimal_places}f}",
-                        str(kp_vis)
-                    ])
-                else:
-                    # 无该关键点：坐标0 + 可见性0
-                    yolo_line.extend(["0.0", "0.0", "0"])
+
+            # 4.3 若为head类，添加属性字段（attr_smoke, attr_no_helmet）
+            # if label == 'head':
+            #     flags = bbox_ann.get('flags', {})
+            #     # 提取属性（默认值：0=未吸烟，0=佩戴安全帽）
+            #     attr_smoke = ATTR_MAP.get(flags.get('smoke'), 0)
+            #     attr_no_helmet = ATTR_MAP.get(flags.get('no_helmet'), 0)
+            #     yolo_line.extend([str(attr_smoke), str(attr_no_helmet)])
 
             # 添加当前行到内容中
             yolo_content.append(' '.join(yolo_line))
 
-        # 6. 写入TXT文件（若有标注内容才写入，避免空文件）
+        # 5. 写入TXT文件（若有标注内容才写入，避免空文件）
         if yolo_content:
             with open(output_txt_path, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(yolo_content))
@@ -188,7 +145,7 @@ def convert_json_to_yolo_txt(
 def batch_process_groups(
         root_dir: str,
         group_index: List[str],
-        json_subdir: str = "labels_json",
+        json_subdir: str = "labels_labelme",
         txt_subdir: str = "labels"
 ) -> None:
     """
@@ -242,8 +199,9 @@ def batch_process_groups(
                 failed_records.append(f"分组[{group}] {json_file.name}：{msg}")
                 print(f"❌ {json_file.name} → {msg}")
 
-        print(
-            f"分组[{group}]处理完成：成功{len(json_files) - len([r for r in failed_records if f'分组[{group}]' in r])}个，失败{len([r for r in failed_records if f'分组[{group}]' in r])}个\n")
+        # 统计当前分组失败数
+        group_failed = len([r for r in failed_records if f'分组[{group}]' in r])
+        print(f"分组[{group}]处理完成：成功{len(json_files) - group_failed}个，失败{group_failed}个\n")
 
     # 输出最终统计结果
     print("===== 批量处理结束 =====")
@@ -256,9 +214,8 @@ def batch_process_groups(
 
 if __name__ == '__main__':
     # -------------------------- 用户配置区 --------------------------
-    DATASET_ROOT = r'D:\1_Python\datasets\liquids'  # 数据集根目录
-    # TARGET_GROUPS = ['01', '04']  # 需处理的分组
-    TARGET_GROUPS = ['01']  # 需处理的分组
+    DATASET_ROOT = r'D:\1_Python\datasets\fire_security'  # 数据集根目录
+    TARGET_GROUPS = ['01', '03', '04']  # 需处理的分组
 
     # 执行批量处理
     batch_process_groups(

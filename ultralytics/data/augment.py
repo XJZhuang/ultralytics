@@ -1608,10 +1608,10 @@ class LetterBox:
         self.auto = auto
         self.scale_fill = scale_fill
         self.scaleup = scaleup
-        self.stride = stride
+        self.stride = stride    # 32
         self.center = center  # Put the image in the middle or top-left
         self.padding_value = padding_value
-        self.interpolation = interpolation
+        self.interpolation = interpolation  # interpolation=1 对应的是 cv2.INTER_LINEAR，即双线性插值
 
     def __call__(self, labels: dict[str, Any] | None = None, image: np.ndarray = None) -> dict[str, Any] | np.ndarray:
         """Resize and pad an image for object detection, instance segmentation, or pose estimation tasks.
@@ -1639,7 +1639,7 @@ class LetterBox:
             labels = {}
         img = labels.get("img") if image is None else image
         shape = img.shape[:2]  # current shape [height, width]
-        new_shape = labels.pop("rect_shape", self.new_shape)
+        new_shape = labels.pop("rect_shape", self.new_shape)    # 没有标签是，new_shape=[640, 640]
         if isinstance(new_shape, int):
             new_shape = (new_shape, new_shape)
 
@@ -1650,16 +1650,16 @@ class LetterBox:
 
         # Compute padding
         ratio = r, r  # width, height ratios
-        new_unpad = round(shape[1] * r), round(shape[0] * r)
-        dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
-        if self.auto:  # minimum rectangle
+        new_unpad = round(shape[1] * r), round(shape[0] * r)    # 最长边一定是640，保持比例，相当与 不变形resize后且未填充 的尺寸
+        dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding 计算填充像素，一定只有一个非零
+        if self.auto:  # minimum rectangle  一般是True
             dw, dh = np.mod(dw, self.stride), np.mod(dh, self.stride)  # wh padding
         elif self.scale_fill:  # stretch
             dw, dh = 0.0, 0.0
             new_unpad = (new_shape[1], new_shape[0])
             ratio = new_shape[1] / shape[1], new_shape[0] / shape[0]  # width, height ratios
 
-        if self.center:
+        if self.center:     # 一般是True
             dw /= 2  # divide padding into 2 sides
             dh /= 2
 
@@ -1670,12 +1670,15 @@ class LetterBox:
 
         top, bottom = round(dh - 0.1) if self.center else 0, round(dh + 0.1)
         left, right = round(dw - 0.1) if self.center else 0, round(dw + 0.1)
-        h, w, c = img.shape
-        if c == 3:
+        h, w, c = img.shape     # resize后的形状，如 640,480,3
+
+        # 在原始图像的上、下、左、右四个方向上，各增加指定数量的像素行或列(一般个甚至4个方向都不填充)，最终形成一个更大的新图像。
+        # 注意，对于 1080*810的图片，new_unpad 后等于 640*480，填充后也是 640*480。因为填充量 (640-480)%32=0
+        if c == 3:  # 标准的 RGB 彩色图像
             img = cv2.copyMakeBorder(
                 img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(self.padding_value,) * 3
             )
-        else:  # multispectral
+        else:  # multispectral 多光谱图像
             pad_img = np.full((h + top + bottom, w + left + right, c), fill_value=self.padding_value, dtype=img.dtype)
             pad_img[top : top + h, left : left + w] = img
             img = pad_img

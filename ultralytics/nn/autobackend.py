@@ -217,6 +217,7 @@ class AutoBackend(nn.Module):
             ch = model.yaml.get("channels", 3)
             for p in model.parameters():
                 p.requires_grad = False
+            # 类型为<class 'ultralytics.nn.tasks.DetectionModel'>
             self.model = model  # explicitly assign for to(), cpu(), cuda(), half()
 
         # TorchScript

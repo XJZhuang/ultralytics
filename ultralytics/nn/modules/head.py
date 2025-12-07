@@ -85,17 +85,17 @@ class Detect(nn.Module):
         """
         super().__init__()
         self.nc = nc  # number of classes
-        self.nl = len(ch)  # number of detection layers
+        self.nl = len(ch)  # number of detection layers     # self.nl = 3   ch = [128, 256, 512]
         self.reg_max = 16  # DFL channels (ch[0] // 16 to scale 4/8/12/16/20 for n/s/m/l/x)
-        self.no = nc + self.reg_max * 4  # number of outputs per anchor
+        self.no = nc + self.reg_max * 4  # number of outputs per anchor     # 80 + 16 * 4 = 144
         self.stride = torch.zeros(self.nl)  # strides computed during build
-        c2, c3 = max((16, ch[0] // 4, self.reg_max * 4)), max(ch[0], min(self.nc, 100))  # channels
+        c2, c3 = max((16, ch[0] // 4, self.reg_max * 4)), max(ch[0], min(self.nc, 100))  # channels c2=64, c3=128
         self.cv2 = nn.ModuleList(
             nn.Sequential(Conv(x, c2, 3), Conv(c2, c2, 3), nn.Conv2d(c2, 4 * self.reg_max, 1)) for x in ch
-        )
+        )   # 回归分支（3层）
         self.cv3 = (
             nn.ModuleList(nn.Sequential(Conv(x, c3, 3), Conv(c3, c3, 3), nn.Conv2d(c3, self.nc, 1)) for x in ch)
-            if self.legacy
+            if self.legacy      # yolov8s默认 self.legacy = True
             else nn.ModuleList(
                 nn.Sequential(
                     nn.Sequential(DWConv(x, x, 3), Conv(x, c3, 1)),
@@ -104,7 +104,7 @@ class Detect(nn.Module):
                 )
                 for x in ch
             )
-        )
+        )   # 分类分支（3层）
         self.dfl = DFL(self.reg_max) if self.reg_max > 1 else nn.Identity()
 
         if self.end2end:
@@ -113,6 +113,7 @@ class Detect(nn.Module):
 
     def forward(self, x: list[torch.Tensor]) -> list[torch.Tensor] | tuple:
         """Concatenate and return predicted bounding boxes and class probabilities."""
+        # print("Detect.forward")
         if self.end2end:
             return self.forward_end2end(x)
 
@@ -120,7 +121,11 @@ class Detect(nn.Module):
             x[i] = torch.cat((self.cv2[i](x[i]), self.cv3[i](x[i])), 1)
         if self.training:  # Training path
             return x
-        y = self._inference(x)
+
+        # x的形状是[1, 144, 80, 60], [1, 144, 40, 30], [1, 144, 20, 15]-->原图是640*480时
+        # y的形状是[1, 84, 6300]
+        y = self._inference(x)      # 将原始多个特征层的预测结果中的 box 解码为 xywh 格式，并合并3个特征层的结果
+
         return y if self.export else (y, x)
 
     def forward_end2end(self, x: list[torch.Tensor]) -> dict | tuple:
@@ -156,15 +161,19 @@ class Detect(nn.Module):
             (torch.Tensor): Concatenated tensor of decoded bounding boxes and class probabilities.
         """
         # Inference path
-        shape = x[0].shape  # BCHW
-        x_cat = torch.cat([xi.view(shape[0], self.no, -1) for xi in x], 2)
+        shape = x[0].shape  # BCHW  torch.Size([1, 144, 80, 60])
+        x_cat = torch.cat([xi.view(shape[0], self.no, -1) for xi in x], 2)      # [1, 144, sum(h*w)]     #
         if self.dynamic or self.shape != shape:
             self.anchors, self.strides = (x.transpose(0, 1) for x in make_anchors(x, self.stride, 0.5))
             self.shape = shape
-
+        # box形状[1, 64, 6300]，cls形状[1, 80, 6300] box 张量的元素是原始的、未经归一化的数值，是正数、负数，范围没有限制。
         box, cls = x_cat.split((self.reg_max * 4, self.nc), 1)
-        dbox = self.decode_bboxes(self.dfl(box), self.anchors.unsqueeze(0)) * self.strides
-        return torch.cat((dbox, cls.sigmoid()), 1)
+
+        # dfl_box 数字的理论值域: [0, reg_max-1]
+        dfl_box = self.dfl(box)     # [1, 64, 6300] -->[1, 4, 6300]
+        dbox = self.decode_bboxes(dfl_box, self.anchors.unsqueeze(0)) * self.strides    # [1, 4, 6300] 在原图上的坐标(x,y,w,h)
+        # dbox = self.decode_bboxes(self.dfl(box), self.anchors.unsqueeze(0)) * self.strides
+        return torch.cat((dbox, cls.sigmoid()), 1)  # [1, 4, 6300] + [1, 80, 6300] = [1, 84, 6300]
 
     def bias_init(self):
         """Initialize Detect() biases, WARNING: requires stride availability."""
@@ -202,7 +211,7 @@ class Detect(nn.Module):
             (torch.Tensor): Processed predictions with shape (batch_size, min(max_det, num_anchors), 6) and last
                 dimension format [x, y, w, h, max_class_prob, class_index].
         """
-        batch_size, anchors, _ = preds.shape  # i.e. shape(16,8400,84)
+        batch_size, anchors, _ = preds.shape  # i.e. shape(16,8400,84=80个COCO类别+4个指标)
         boxes, scores = preds.split([4, nc], dim=-1)
         index = scores.amax(dim=-1).topk(min(max_det, anchors))[1].unsqueeze(-1)
         boxes = boxes.gather(dim=1, index=index.repeat(1, 1, 4))

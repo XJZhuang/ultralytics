@@ -130,7 +130,8 @@ def main():
     # 设置你要扫描的文件夹路径
     # 使用 '.' 表示当前脚本所在的文件夹
     # 或者直接写路径，例如: "C:/Users/YourUser/Pictures" 或 "/home/user/photos"
-    scan_directory = r'D:\3_download\图片助手(ImageAssistant)_批量图片下载器\10.12.14.6_38068\2025-11-21_13-55-01\园区AI管家'
+    # scan_directory = r'D:\3_download\图片助手(ImageAssistant)_批量图片下载器\10.12.14.6_38068\2025-11-21_13-55-01\园区AI管家'
+    scan_directory = r'D:\1_Python\datasets\fire_security\images\train03'
     # -----------------
 
     if not os.path.isdir(scan_directory):

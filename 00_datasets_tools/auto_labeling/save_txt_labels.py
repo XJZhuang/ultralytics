@@ -22,16 +22,17 @@ if __name__ == '__main__':
     model = YOLO("yolo11x.pt")
 
     # 指定图片文件夹的路径
-    image_folder = "D:/1_Python/datasets/fire_security/images/train01/"
+    image_folder = "D:/1_Python/datasets/fire_security/images/train03/"
 
     # 批量对图片进行预测，并保存标签文件
     results = model.predict(
         source=image_folder,
         project=image_folder,
         name="labels_txt",
-        classes=[0],
+        classes=[0],    # person 的 类别ID
         exist_ok=True,
-        save_txt=True
+        save_txt=True,
+        conf=0.8,    # 高置信度，只保留预测的准的框
     )
 
     # 对每张图片进行预测，并保存标签文件（效率低）

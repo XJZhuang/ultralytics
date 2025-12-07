@@ -411,18 +411,19 @@ def set_logging(name="LOGGING_NAME", verbose=True):
 
     class PrefixFormatter(logging.Formatter):
         def format(self, record):
-            """Format log records with prefixes based on level."""
-            # Apply prefixes based on log level
-            if record.levelno == logging.WARNING:
-                prefix = "WARNING" if WINDOWS else "WARNING ⚠️"
-                record.msg = f"{prefix} {record.msg}"
-            elif record.levelno == logging.ERROR:
-                prefix = "ERROR" if WINDOWS else "ERROR ❌"
-                record.msg = f"{prefix} {record.msg}"
-
-            # Handle emojis in message based on platform
-            formatted_message = super().format(record)
-            return emojis(formatted_message)
+            # """Format log records with prefixes based on level."""
+            # # Apply prefixes based on log level
+            # if record.levelno == logging.WARNING:
+            #     prefix = "WARNING" if WINDOWS else "WARNING ⚠️"
+            #     record.msg = f"{prefix} {record.msg}"
+            # elif record.levelno == logging.ERROR:
+            #     prefix = "ERROR" if WINDOWS else "ERROR ❌"
+            #     record.msg = f"{prefix} {record.msg}"
+            #
+            # # Handle emojis in message based on platform
+            # formatted_message = super().format(record)
+            # return emojis(formatted_message)
+            return super().format(record)  # 直接调用父类格式化方法，不修改消息（使LOGGER支持中文）
 
     formatter = PrefixFormatter("%(message)s")
 

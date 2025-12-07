@@ -1,3 +1,8 @@
+"""
+    生成包含所有图片路径的 train.txt / val.txt
+
+"""
+
 import os
 from typing import List, Tuple
 

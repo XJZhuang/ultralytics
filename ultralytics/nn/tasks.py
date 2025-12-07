@@ -133,8 +133,24 @@ class BaseModel(torch.nn.Module):
         Returns:
             (torch.Tensor): Loss if x is a dict (training), or network predictions (inference).
         """
+
+        """
+        import matplotlib.pyplot as plt
+        import matplotlib
+        matplotlib.use('TkAgg')
+        # 假设 x 是训练时的张量（shape: (B, C, H, W)）
+        train_tensor = x["img"][0]  # 获取一个批次的第一个张量 训练
+        train_tensor = x[0]  # 获取一个批次的第一个张量 推理
+        # 张量转回图像（RGB 顺序）
+        img_np = train_tensor.permute(1, 2, 0).numpy()  # (C, H, W) → (H, W, C).
+        plt.imshow(img_np)
+        plt.title("Train Tensor (RGB)")
+        plt.savefig('tensor_image_02.png', dpi=150, bbox_inches='tight')  # 保存
+        """
+
         if isinstance(x, dict):  # for cases of training and validating while training.
             return self.loss(x, *args, **kwargs)
+        # LOGGER.info("-------------")
         return self.predict(x, *args, **kwargs)
 
     def predict(self, x, profile=False, visualize=False, augment=False, embed=None):
@@ -150,7 +166,7 @@ class BaseModel(torch.nn.Module):
         Returns:
             (torch.Tensor): The last output of the model.
         """
-        if augment:
+        if augment:     # 默认False
             return self._predict_augment(x)
         return self._predict_once(x, profile, visualize, embed)
 
@@ -169,13 +185,38 @@ class BaseModel(torch.nn.Module):
         y, dt, embeddings = [], [], []  # outputs
         embed = frozenset(embed) if embed is not None else {-1}
         max_idx = max(embed)
-        for m in self.model:
+        # 重点：模型经过每一层
+        for idx, m in enumerate(self.model):
             if m.f != -1:  # if not from previous layer
                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
             if profile:
                 self._profile_one_layer(m, x, dt)
+            # print(f'layer id:{idx:>2} 输入形状{x.shape}')     # 不一定是Tensor
             x = m(x)  # run
+            # print(f'layer id:{idx:>2} 输出形状{x.shape}')
+
             y.append(x if m.i in self.save else None)  # save output
+
+            my_print = True    # debug 打印每一层详细输出
+            if my_print:
+                if type(x) in {list, tuple}:
+                    if idx == (len(self.model) - 1):
+                        if type(x[1]) is dict:
+                            print(
+                                f'layer id:{idx:>2} {m.type:>50} output shape:{", ".join([str(x_.size()) for x_ in x[1]["one2one"]])}')
+                        else:
+                            print(
+                                f'layer id:{idx:>2} {m.type:>50} output shape:{", ".join([str(x_.size()) for x_ in x[1]])}')
+                    else:
+                        print(
+                            f'layer id:{idx:>2} {m.type:>50} output shape:{", ".join([str(x_.size()) for x_ in x if x_ is not None])}')
+                elif type(x) is dict:
+                    print(
+                        f'layer id:{idx:>2} {m.type:>50} output shape:{", ".join([str(x_.size()) for x_ in x["one2one"]])}')
+                else:
+                    if not hasattr(m, 'backbone'):
+                        print(f'layer id:{idx:>2} {m.type:>50} output shape:{x.size()}')
+
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
             if m.i in embed:
@@ -388,6 +429,8 @@ class DetectionModel(BaseModel):
         if nc and nc != self.yaml["nc"]:
             LOGGER.info(f"Overriding model.yaml nc={self.yaml['nc']} with nc={nc}")
             self.yaml["nc"] = nc  # override YAML value
+
+        # 重点，解析模型
         self.model, self.save = parse_model(deepcopy(self.yaml), ch=ch, verbose=verbose)  # model, savelist
         self.names = {i: f"{i}" for i in range(self.yaml["nc"])}  # default names dict
         self.inplace = self.yaml.get("inplace", True)
@@ -405,11 +448,14 @@ class DetectionModel(BaseModel):
                     return self.forward(x)["one2many"]
                 return self.forward(x)[0] if isinstance(m, (Segment, YOLOESegment, Pose, OBB)) else self.forward(x)
 
-            self.model.eval()  # Avoid changing batch statistics until training begins
-            m.training = True  # Setting it to True to properly return strides
+            self.model.eval()  # Avoid changing batch statistics until training begins 设置模型为评估模式
+            m.training = True  # Setting it to True to properly return strides 但强制将检测头设为训练模式，以确保输出正确的格式
+            # 运行临时的前向传播来计算步长
+            # torch.zeros(1, ch, s, s))是虚拟输入。 x.shape[-2] 是特征图的高度，s / x.shape[-2] 即 256 / 特征图高度，这个比值就是模型的步长。
+            # x的shape列表为[torch.Size([1, 144, 32, 32]), torch.Size([1, 144, 16, 16]), torch.Size([1, 144, 8, 8])]
             m.stride = torch.tensor([s / x.shape[-2] for x in _forward(torch.zeros(1, ch, s, s))])  # forward
-            self.stride = m.stride
-            self.model.train()  # Set model back to training(default) mode
+            self.stride = m.stride  # 对于yolov8s，tensor([ 8., 16., 32.])
+            self.model.train()  # Set model back to training(default) mode 将模型恢复为训练模式
             m.bias_init()  # only run once
         else:
             self.stride = torch.Tensor([32])  # default stride for i.e. RTDETR
@@ -1506,9 +1552,9 @@ def parse_model(d, ch, verbose=True):
     max_channels = float("inf")
     nc, act, scales = (d.get(x) for x in ("nc", "activation", "scales"))
     depth, width, kpt_shape = (d.get(x, 1.0) for x in ("depth_multiple", "width_multiple", "kpt_shape"))
-    scale = d.get("scale")
+    scale = d.get("scale")      # 获取 n,s,m,l,x
     if scales:
-        if not scale:
+        if not scale:   # 没有指定则获取一个
             scale = next(iter(scales.keys()))
             LOGGER.warning(f"no model scale passed. Assuming scale='{scale}'.")
         depth, width, max_channels = scales[scale]

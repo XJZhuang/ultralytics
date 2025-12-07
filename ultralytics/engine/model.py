@@ -24,6 +24,7 @@ from ultralytics.utils import (
     callbacks,
     checks,
 )
+from ultralytics.utils.torch_utils import intersect_dicts
 
 
 class Model(torch.nn.Module):
@@ -79,10 +80,10 @@ class Model(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        model: str | Path | Model = "yolo11n.pt",
-        task: str | None = None,
-        verbose: bool = False,
+            self,
+            model: str | Path | Model = "yolo11n.pt",
+            task: str | None = None,
+            verbose: bool = False,
     ) -> None:
         """Initialize a new instance of the YOLO model class.
 
@@ -152,10 +153,10 @@ class Model(torch.nn.Module):
         del self.training
 
     def __call__(
-        self,
-        source: str | Path | int | Image.Image | list | tuple | np.ndarray | torch.Tensor = None,
-        stream: bool = False,
-        **kwargs: Any,
+            self,
+            source: str | Path | int | Image.Image | list | tuple | np.ndarray | torch.Tensor = None,
+            stream: bool = False,
+            **kwargs: Any,
     ) -> list:
         """Alias for the predict method, enabling the model instance to be callable for predictions.
 
@@ -252,6 +253,9 @@ class Model(torch.nn.Module):
         cfg_dict = yaml_model_load(cfg)
         self.cfg = cfg
         self.task = task or guess_model_task(cfg_dict)
+        # dm=self._smart_load("model") 是一个 ultralytics.nn.tasks.DetectionModel的type类(不是实例)，dm(cfg_dict)是实例化创建模型
+        # verbose = True  # 临时测试
+        LOGGER.debug("开启verbose = True") if verbose else LOGGER.debug("关闭verbose = False")
         self.model = (model or self._smart_load("model"))(cfg_dict, verbose=verbose and RANK == -1)  # build model
         self.overrides["model"] = self.cfg
         self.overrides["task"] = self.task
@@ -260,6 +264,12 @@ class Model(torch.nn.Module):
         self.model.args = {**DEFAULT_CFG_DICT, **self.overrides}  # combine default and model args (prefer model args)
         self.model.task = self.task
         self.model_name = cfg
+
+        # ckpt = torch.load("yolov8s.pt")
+        # csd = ckpt["model"].float.state_dict()
+        # csd = intersect_dicts(csd, self.model.state_dict())
+        # self.model.load_state_dict(csd, strict=False)
+        # print(f"Transferred {len(csd)}/{len(self.model.state_dict())} items")
 
     def _load(self, weights: str, task=None) -> None:
         """Load a model from a checkpoint file or initialize it from a weights file.
@@ -428,6 +438,7 @@ class Model(torch.nn.Module):
             >>> info_list = model.info(detailed=True, verbose=False)  # Returns detailed info as a list
         """
         self._check_is_pytorch_model()
+        # self.model是ultralytics.nn.tasks.DetectionModel，实际调用的是其父类ultralytics.nn.tasks.BaseModel.info
         return self.model.info(detailed=detailed, verbose=verbose)
 
     def fuse(self) -> None:
@@ -450,10 +461,10 @@ class Model(torch.nn.Module):
         self.model.fuse()
 
     def embed(
-        self,
-        source: str | Path | int | list | tuple | np.ndarray | torch.Tensor = None,
-        stream: bool = False,
-        **kwargs: Any,
+            self,
+            source: str | Path | int | list | tuple | np.ndarray | torch.Tensor = None,
+            stream: bool = False,
+            **kwargs: Any,
     ) -> list:
         """Generate image embeddings based on the provided source.
 
@@ -480,11 +491,11 @@ class Model(torch.nn.Module):
         return self.predict(source, stream, **kwargs)
 
     def predict(
-        self,
-        source: str | Path | int | Image.Image | list | tuple | np.ndarray | torch.Tensor = None,
-        stream: bool = False,
-        predictor=None,
-        **kwargs: Any,
+            self,
+            source: str | Path | int | Image.Image | list | tuple | np.ndarray | torch.Tensor = None,
+            stream: bool = False,
+            predictor=None,
+            **kwargs: Any,
     ) -> list[Results]:
         """Perform predictions on the given image source using the YOLO model.
 
@@ -540,11 +551,11 @@ class Model(torch.nn.Module):
         return self.predictor.predict_cli(source=source) if is_cli else self.predictor(source=source, stream=stream)
 
     def track(
-        self,
-        source: str | Path | int | list | tuple | np.ndarray | torch.Tensor = None,
-        stream: bool = False,
-        persist: bool = False,
-        **kwargs: Any,
+            self,
+            source: str | Path | int | list | tuple | np.ndarray | torch.Tensor = None,
+            stream: bool = False,
+            persist: bool = False,
+            **kwargs: Any,
     ) -> list[Results]:
         """Conduct object tracking on the specified input source using the registered trackers.
 
@@ -583,9 +594,9 @@ class Model(torch.nn.Module):
         return self.predict(source=source, stream=stream, **kwargs)
 
     def val(
-        self,
-        validator=None,
-        **kwargs: Any,
+            self,
+            validator=None,
+            **kwargs: Any,
     ):
         """Validate the model using a specified dataset and validation configuration.
 
@@ -614,7 +625,7 @@ class Model(torch.nn.Module):
 
         # 例如 yolo.detect.DetectionValidator
         validator = (validator or self._smart_load("validator"))(args=args, _callbacks=self.callbacks)
-        validator(model=self.model)     # ultralytics.engine.validator.BaseValidator.__call__
+        validator(model=self.model)  # ultralytics.engine.validator.BaseValidator.__call__
         self.metrics = validator.metrics
         return validator.metrics
 
@@ -669,8 +680,8 @@ class Model(torch.nn.Module):
         )
 
     def export(
-        self,
-        **kwargs: Any,
+            self,
+            **kwargs: Any,
     ) -> str:
         """Export the model to a different format suitable for deployment.
 
@@ -715,9 +726,9 @@ class Model(torch.nn.Module):
         return Exporter(overrides=args, _callbacks=self.callbacks)(model=self.model)
 
     def train(
-        self,
-        trainer=None,
-        **kwargs: Any,
+            self,
+            trainer=None,
+            **kwargs: Any,
     ):
         """Train the model using the specified dataset and training configuration.
 
@@ -785,11 +796,11 @@ class Model(torch.nn.Module):
         return self.metrics
 
     def tune(
-        self,
-        use_ray=False,
-        iterations=10,
-        *args: Any,
-        **kwargs: Any,
+            self,
+            use_ray=False,
+            iterations=10,
+            *args: Any,
+            **kwargs: Any,
     ):
         """Conduct hyperparameter tuning for the model, with an option to use Ray Tune.
 
@@ -1056,7 +1067,9 @@ class Model(torch.nn.Module):
             >>> trainer_class = model._smart_load("trainer")
         """
         try:
-            return self.task_map[self.task][key]    # 实际调用的是 ultralytics.models.yolo.model.YOLO.task_map
+            # self.task = "detect", key = "model"       # "model": DetectionModel,
+            # self.task = "detect", key = "trainer"     # "trainer": yolo.detect.DetectionTrainer,
+            return self.task_map[self.task][key]  # 实际调用的是 ultralytics.models.yolo.model.YOLO.task_map
         except Exception as e:
             name = self.__class__.__name__
             mode = inspect.stack()[1][3]  # get the function name.
