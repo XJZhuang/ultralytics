@@ -98,6 +98,12 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
+# UV
+#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+uv.lock
+
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
 
@@ -175,4 +181,24 @@ pnnx*
 # calibration image
 calibration_*.npy
 
+<<<<<<< HEAD
 videos/
+=======
+# Videos and Pictures
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tiff
+*.gif
+*.svg
+*.webp
+*.heic
+*.ico
+*.raw
+>>>>>>> cadf843e0013108b0fb789c474f320caa46fa1a4
