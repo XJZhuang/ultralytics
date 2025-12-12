@@ -25,7 +25,7 @@ def imread(filename: str, flags: int = cv2.IMREAD_COLOR) -> np.ndarray | None:
         flags (int, optional): Flag that can take values of cv2.IMREAD_*. Controls how the image is read.
 
     Returns:
-        (np.ndarray | None): The read image array, or None if reading fails.
+        (np.ndarray | None): The read image array, or None if reading fails.    # BGR 通道？
 
     Examples:
         >>> img = imread("path/to/image.jpg")

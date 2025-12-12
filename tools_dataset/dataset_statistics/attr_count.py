@@ -183,9 +183,9 @@ def main():
     parser = argparse.ArgumentParser(description="统计指定子集的吸烟/未戴安全帽属性分布")
     parser.add_argument("--root_dir", default=r"D:\1_Python\datasets\fire_security\labels_yolo+attr",
                         help="数据集根目录（包含所有子集目录，如train01、train03）")
-    parser.add_argument("--train_subsets", nargs="+", default=["train01", "train03", "train04"],
+    parser.add_argument("--train_subsets", nargs="+", default=["train01", "train03", "train04", "train05"],
                         help="要统计的训练集子集名称列表（如 --train_subsets train01 train03）")
-    parser.add_argument("--val_subsets", nargs="+", default=["val01", "val03", "val04"],
+    parser.add_argument("--val_subsets", nargs="+", default=["val01", "val03", "val04", "val05"],
                         help="要统计的验证集子集名称列表（如 --val_subsets val01 val05）")
     parser.add_argument("--ann_type", default="yolo",
                         help="标注类型：yolo/json（默认yolo）")

@@ -101,6 +101,7 @@ class DetectionPredictor(BasePredictor):
             (list[Results]): List of Results objects containing detection information for each image.
         """
         return [
+            # 对于pose，实际调用的是ultralytics.models.yolo.pose.predict.PosePredictor.construct_result
             self.construct_result(pred, img, orig_img, img_path)
             for pred, orig_img, img_path in zip(preds, orig_imgs, self.batch[0])
         ]

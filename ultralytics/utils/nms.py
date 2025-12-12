@@ -58,8 +58,9 @@ def non_max_suppression(
     # Checks
     assert 0 <= conf_thres <= 1, f"Invalid Confidence threshold {conf_thres}, valid values are between 0.0 and 1.0"
     assert 0 <= iou_thres <= 1, f"Invalid IoU {iou_thres}, valid values are between 0.0 and 1.0"
+    # LOGGER.info(f"Performing NMS with conf_thres={conf_thres:g}, iou_thres={iou_thres:g}")
     if isinstance(prediction, (list, tuple)):  # YOLOv8 model in validation model, output = (inference_out, loss_out)
-        prediction = prediction[0]  # select only inference output
+        prediction = prediction[0]  # select only inference output 只获取推理输出
     if classes is not None:
         classes = torch.tensor(classes, device=prediction.device)
 
@@ -70,10 +71,10 @@ def non_max_suppression(
         return output
 
     bs = prediction.shape[0]  # batch size (BCN, i.e. 1,84,6300)
-    nc = nc or (prediction.shape[1] - 4)  # number of classes
-    extra = prediction.shape[1] - nc - 4  # number of extra info
-    mi = 4 + nc  # mask start index
-    xc = prediction[:, 4:mi].amax(1) > conf_thres  # candidates
+    nc = nc or (prediction.shape[1] - 4)  # number of classes   # 默认是nc，否则是减去4个坐标。在yolo-pose模式下-4是错的
+    extra = prediction.shape[1] - nc - 4  # number of extra info    # 剩下的是额外输出，即关键点等，等于56-1-4=51=17*3
+    mi = 4 + nc  # mask start index     # [0-4)是坐标，[4-mi])是类别
+    xc = prediction[:, 4:mi].amax(1) > conf_thres  # candidates (nc,sum(h*w))   置信度过滤。从第4个到第4+nc个是类别置信度
     xinds = torch.arange(prediction.shape[-1], device=prediction.device).expand(bs, -1)[..., None]  # to track idxs
 
     # Settings
@@ -86,7 +87,7 @@ def non_max_suppression(
         prediction[..., :4] = xywh2xyxy(prediction[..., :4])  # xywh to xyxy
 
     t = time.time()
-    output = [torch.zeros((0, 6 + extra), device=prediction.device)] * bs
+    output = [torch.zeros((0, 6 + extra), device=prediction.device)] * bs   # 6=（框坐标 x4 + 置信度 x1 + 类别 ID x1）
     keepi = [torch.zeros((0, 1), device=prediction.device)] * bs  # to store the kept idxs
     for xi, (x, xk) in enumerate(zip(prediction, xinds)):  # image index, (preds, preds indices)
         # Apply constraints
@@ -163,7 +164,7 @@ def non_max_suppression(
             LOGGER.warning(f"NMS time limit {time_limit:.3f}s exceeded")
             break  # time limit exceeded
 
-    return (output, keepi) if return_idxs else output
+    return (output, keepi) if return_idxs else output   # (n_detect, 4+1+1+51=57)
 
 
 class TorchNMS:

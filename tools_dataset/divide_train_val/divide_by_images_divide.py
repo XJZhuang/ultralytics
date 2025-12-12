@@ -70,9 +70,10 @@ def main():
     # 定义需要匹配的子集映射（key: 图片子集目录, value: 标签源子集目录）
     # 例如：images/val01 对应 labels_yolo+attr/train01
     subset_mapping = {
-        "val01": "train01",
-        "val03": "train03",
+        # "val01": "train01",
+        # "val03": "train03",
         "val04": "train04",
+        "val05": "train05",
         # 可添加更多映射，如 "test01": "train01"
     }
 

@@ -22,9 +22,6 @@ BBOX_CLASS_MAP: Dict[str, int] = {
     'cigarette': 3
 }
 
-# 关键点类别顺序（需与LabelMe标注的"label"字段一致，决定TXT中关键点的输出顺序）
-# KEYPOINT_CLASS_ORDER: List[str] = ['center', 'point']
-KEYPOINT_CLASS_ORDER: List[str] = ['edge_point']
 
 # 归一化坐标保留小数位数（YOLO常用5位，可调整）
 DECIMAL_PLACES: int = 6
@@ -118,12 +115,29 @@ def convert_json_to_yolo_txt(
             ])
 
             # 4.3 若为head类，添加属性字段（attr_smoke, attr_no_helmet）
-            # if label == 'head':
-            #     flags = bbox_ann.get('flags', {})
-            #     # 提取属性（默认值：0=未吸烟，0=佩戴安全帽）
-            #     attr_smoke = ATTR_MAP.get(flags.get('smoke'), 0)
-            #     attr_no_helmet = ATTR_MAP.get(flags.get('no_helmet'), 0)
-            #     yolo_line.extend([str(attr_smoke), str(attr_no_helmet)])
+            if label == 'head':
+                flags = bbox_ann.get('flags', {})
+                # 初始化缺失字段列表
+                missing_fields = []
+
+                # 检查smoke字段
+                if 'smoke' not in flags:
+                    missing_fields.append('smoke')
+                # 检查no_helmet字段
+                if 'no_helmet' not in flags:
+                    missing_fields.append('no_helmet')
+
+                # 打印错误信息（若有缺失字段）
+                if missing_fields:
+                    # 补充上下文：比如获取图片路径/节点索引（根据你的实际代码补充）
+                    # 示例：假设bbox_ann属于某个json文件，可传入file_path/shape_idx
+                    err_context = f"文件：{json_file_path} | head节点flags字段缺失：{', '.join(missing_fields)}"
+                    print(f"❌ 错误：{err_context}，已赋予默认值0")
+
+                # 提取属性（缺失时仍给默认值0）
+                attr_smoke = ATTR_MAP.get(flags.get('smoke'), 0)
+                attr_no_helmet = ATTR_MAP.get(flags.get('no_helmet'), 0)
+                yolo_line.extend([str(attr_smoke), str(attr_no_helmet)])
 
             # 添加当前行到内容中
             yolo_content.append(' '.join(yolo_line))
@@ -146,7 +160,7 @@ def batch_process_groups(
         root_dir: str,
         group_index: List[str],
         json_subdir: str = "labels_labelme",
-        txt_subdir: str = "labels"
+        txt_subdir: str = "labels_yolo+attr"
 ) -> None:
     """
     批量处理多个分组的JSON文件，转换为YOLO TXT
@@ -215,7 +229,7 @@ def batch_process_groups(
 if __name__ == '__main__':
     # -------------------------- 用户配置区 --------------------------
     DATASET_ROOT = r'D:\1_Python\datasets\fire_security'  # 数据集根目录
-    TARGET_GROUPS = ['01', '03', '04']  # 需处理的分组
+    TARGET_GROUPS = ['04', '05']  # 需处理的分组
 
     # 执行批量处理
     batch_process_groups(

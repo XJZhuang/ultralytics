@@ -1639,7 +1639,7 @@ class LetterBox:
             labels = {}
         img = labels.get("img") if image is None else image
         shape = img.shape[:2]  # current shape [height, width]
-        new_shape = labels.pop("rect_shape", self.new_shape)    # 没有标签是，new_shape=[640, 640]
+        new_shape = labels.pop("rect_shape", self.new_shape)    # 没有标签时，new_shape=[640, 640]
         if isinstance(new_shape, int):
             new_shape = (new_shape, new_shape)
 
@@ -1652,7 +1652,7 @@ class LetterBox:
         ratio = r, r  # width, height ratios
         new_unpad = round(shape[1] * r), round(shape[0] * r)    # 最长边一定是640，保持比例，相当与 不变形resize后且未填充 的尺寸
         dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding 计算填充像素，一定只有一个非零
-        if self.auto:  # minimum rectangle  一般是True
+        if self.auto:  # minimum rectangle  一般是True，但通过mosaic...
             dw, dh = np.mod(dw, self.stride), np.mod(dh, self.stride)  # wh padding
         elif self.scale_fill:  # stretch
             dw, dh = 0.0, 0.0

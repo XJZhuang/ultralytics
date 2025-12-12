@@ -99,6 +99,7 @@ def segment2box(segment, width: int = 640, height: int = 640):
     )  # xyxy
 
 
+# Ultralytics 代码设计的精妙之处：只要你传入推理时实际使用的 Tensor 形状 (img1_shape)，后处理函数就能自动把坐标映射回去，无需人工指定模式。
 def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None, padding: bool = True, xywh: bool = False):
     """Rescale bounding boxes from one image shape to another.
 
@@ -106,18 +107,20 @@ def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None, padding: bool = T
     both xyxy and xywh box formats.
 
     Args:
-        img1_shape (tuple): Shape of the source image (height, width).
-        boxes (torch.Tensor): Bounding boxes to rescale in format (N, 4).
-        img0_shape (tuple): Shape of the target image (height, width).
+        img1_shape (tuple): Shape of the source image (height, width).  张量图尺寸
+        boxes (torch.Tensor): Bounding boxes to rescale in format (N, 4). 在tensor图上的坐标
+        img0_shape (tuple): Shape of the target image (height, width).  原图尺寸
         ratio_pad (tuple, optional): Tuple of (ratio, pad) for scaling. If None, calculated from image shapes.
         padding (bool): Whether boxes are based on YOLO-style augmented images with padding.
         xywh (bool): Whether box format is xywh (True) or xyxy (False).
 
     Returns:
-        (torch.Tensor): Rescaled bounding boxes in the same format as input.
+        (torch.Tensor): Rescaled bounding boxes in the same format as input.    在原图上的坐标
     """
     if ratio_pad is None:  # calculate from img0_shape
+        # 1. 计算缩放比例 (gain) 和 填充 (pad) 计算 new / old 的比例，取最小边
         gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
+        # pad = (Tensor宽 - 原图宽 * gain) / 2
         pad_x = round((img1_shape[1] - img0_shape[1] * gain) / 2 - 0.1)
         pad_y = round((img1_shape[0] - img0_shape[0] * gain) / 2 - 0.1)
     else:
@@ -125,13 +128,14 @@ def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None, padding: bool = T
         pad_x, pad_y = ratio_pad[1]
 
     if padding:
-        boxes[..., 0] -= pad_x  # x padding
-        boxes[..., 1] -= pad_y  # y padding
+        # 2. 还原坐标核心步骤
+        boxes[..., 0] -= pad_x  # x padding # x 坐标减去 x轴填充
+        boxes[..., 1] -= pad_y  # y padding # y 坐标减去 y轴填充
         if not xywh:
             boxes[..., 2] -= pad_x  # x padding
             boxes[..., 3] -= pad_y  # y padding
-    boxes[..., :4] /= gain
-    return boxes if xywh else clip_boxes(boxes, img0_shape)
+    boxes[..., :4] /= gain  # 除以缩放比例
+    return boxes if xywh else clip_boxes(boxes, img0_shape) # 3. 防止坐标超出原图边界 (Clip)
 
 
 def make_divisible(x: int, divisor):

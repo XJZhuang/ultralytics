@@ -114,6 +114,12 @@ class YOLO(Model):
                 "validator": yolo.pose.PoseValidator,
                 "predictor": yolo.pose.PosePredictor,
             },
+            "attr": {
+                # "model": AttrModel,
+                # "trainer": yolo.pose.AttrTrainer,
+                # "validator": yolo.pose.AttrValidator,
+                # "predictor": yolo.pose.AttrPredictor,
+            },
             "obb": {
                 "model": OBBModel,
                 "trainer": yolo.obb.OBBTrainer,

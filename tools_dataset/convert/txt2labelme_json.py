@@ -42,7 +42,7 @@ def yolo_to_labelme(yolo_txt_path, image_path, class_names, output_json_path=Non
         "version": "5.1.1",
         "flags": {},
         "shapes": [],
-        "imagePath": "../../images/train01/" + os.path.basename(image_path),
+        "imagePath": "../../images/train05/" + os.path.basename(image_path),
         "imageData": None,  # 留空，labelme会自动处理
         "imageHeight": image_height,
         "imageWidth": image_width
@@ -192,9 +192,9 @@ def batch_convert(yolo_dir, image_dir, output_dir=None, class_names=None):
 def main():
     # 解析命令行参数
     parser = argparse.ArgumentParser(description='YOLO格式txt文件转换为labelme格式json文件')
-    parser.add_argument('--yolo-dir', help='YOLO txt文件所在目录', default=r"D:\1_Python\datasets\fire_security\labels\train01")
-    parser.add_argument('--image-dir', help='图片文件所在目录', default=r"D:\1_Python\datasets\fire_security\images\train01")
-    parser.add_argument('--output-dir', help='输出json文件的目录（可选）', default=r"D:\1_Python\datasets\fire_security\labels_labelme\train01")
+    parser.add_argument('--yolo-dir', help='YOLO txt文件所在目录', default=r"D:\1_Python\datasets\fire_security\images\train05\labels_txt\labels")
+    parser.add_argument('--image-dir', help='图片文件所在目录', default=r"D:\1_Python\datasets\fire_security\images\train05")
+    parser.add_argument('--output-dir', help='输出json文件的目录（可选）', default=r"D:\1_Python\datasets\fire_security\labels_labelme\train05")
     parser.add_argument('--classes', nargs='*', default=["person", "head", "helmet", "cigarette"],
                         help='类别名称列表，按YOLO的类别ID顺序（默认: person head helmet cigarette）')
 

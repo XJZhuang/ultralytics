@@ -201,16 +201,17 @@ class v8DetectionLoss:
 
         m = model.model[-1]  # Detect() module
         self.bce = nn.BCEWithLogitsLoss(reduction="none")
+        
         self.hyp = h
-        self.stride = m.stride  # model strides
-        self.nc = m.nc  # number of classes
-        self.no = m.nc + m.reg_max * 4
+        self.stride = m.stride  # model strides tensor([ 8., 16., 32.])
+        self.nc = m.nc  # number of classes     # 80
+        self.no = m.nc + m.reg_max * 4  # 80 + 16 * 4 = 144
         self.reg_max = m.reg_max
         self.device = device
 
-        self.use_dfl = m.reg_max > 1
+        self.use_dfl = m.reg_max > 1    # True
 
-        self.assigner = TaskAlignedAssigner(topk=tal_topk, num_classes=self.nc, alpha=0.5, beta=6.0)
+        self.assigner = TaskAlignedAssigner(topk=tal_topk, num_classes=self.nc, alpha=0.5, beta=6.0)    # tal_topk=10
         self.bbox_loss = BboxLoss(m.reg_max).to(device)
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
 

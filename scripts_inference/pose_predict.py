@@ -22,6 +22,7 @@ if __name__ == '__main__':
         save_txt=True,
         stream=True,
         project="yolo-pose",
+        verbose=True,
     )  # generator of Results objects
 
     for result in results:

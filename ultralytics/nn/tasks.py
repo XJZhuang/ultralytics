@@ -147,10 +147,11 @@ class BaseModel(torch.nn.Module):
         plt.title("Train Tensor (RGB)")
         plt.savefig('tensor_image_02.png', dpi=150, bbox_inches='tight')  # 保存
         """
-
+        # 训练时，x是字典，key分别是？
         if isinstance(x, dict):  # for cases of training and validating while training.
             return self.loss(x, *args, **kwargs)
         # LOGGER.info("-------------")
+        # 推理时，x是形状我(B 3 H W)的张量
         return self.predict(x, *args, **kwargs)
 
     def predict(self, x, profile=False, visualize=False, augment=False, embed=None):
@@ -195,9 +196,9 @@ class BaseModel(torch.nn.Module):
             x = m(x)  # run
             # print(f'layer id:{idx:>2} 输出形状{x.shape}')
 
-            y.append(x if m.i in self.save else None)  # save output
+            y.append(x if m.i in self.save else None)  # save output 当前层若作为后续层的输入，需要提前保存输出
 
-            my_print = True    # debug 打印每一层详细输出
+            my_print = False    # debug 打印每一层详细输出
             if my_print:
                 if type(x) in {list, tuple}:
                     if idx == (len(self.model) - 1):
@@ -260,8 +261,8 @@ class BaseModel(torch.nn.Module):
 
     def fuse(self, verbose=True):
         """Fuse the `Conv2d()` and `BatchNorm2d()` layers of the model into a single layer for improved computation
-        efficiency.
-
+        efficiency.将模型中的卷积层（Conv2d/ConvTranspose2d 等）与批量归一化层（BatchNorm2d）融合成单个层，
+        并对部分特殊卷积模块（如 RepConv、RepVGGDW 等）进行融合优化，最终提升模型的推理计算效率。
         Returns:
             (torch.nn.Module): The fused model is returned.
         """

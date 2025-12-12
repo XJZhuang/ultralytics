@@ -152,7 +152,7 @@ class BasePredictor:
         """Prepare input image before inference.
 
         Args:
-            im (torch.Tensor | list[np.ndarray]): Images of shape (N, 3, H, W) for tensor, [(H, W, 3) x N] for list.
+            im (torch.Tensor | list[np.ndarray]): Images of shape (N, 3, H, W) for tensor, [(H, W, 3) x N] for list.    BGR 通道
 
         Returns:
             (torch.Tensor): Preprocessed image tensor of shape (N, 3, H, W).
@@ -163,7 +163,7 @@ class BasePredictor:
             if im.shape[-1] == 3:
                 im = im[..., ::-1]  # BGR to RGB
             im = im.transpose((0, 3, 1, 2))  # BHWC to BCHW, (n, 3, h, w)
-            im = np.ascontiguousarray(im)  # contiguous
+            im = np.ascontiguousarray(im)  # contiguous 将内存转为连续（解决负步长问题）
             im = torch.from_numpy(im)
 
         im = im.to(self.device)
@@ -329,6 +329,8 @@ class BasePredictor:
 
                 # Inference
                 with profilers[1]:
+                    # preds[0]: [B, 4坐标+1类别+17个关键点*3=56, sum(h*w)]
+                    # preds[1]: preds[1][0]是长度为3的列表，preds[1][0]是元组 （推理模式没啥用）
                     preds = self.inference(im, *args, **kwargs)
                     if self.args.embed:
                         yield from [preds] if isinstance(preds, torch.Tensor) else preds  # yield embedding tensors

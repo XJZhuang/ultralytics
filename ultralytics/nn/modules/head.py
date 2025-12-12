@@ -113,6 +113,7 @@ class Detect(nn.Module):
 
     def forward(self, x: list[torch.Tensor]) -> list[torch.Tensor] | tuple:
         """Concatenate and return predicted bounding boxes and class probabilities."""
+        # x的形状是[1, 125, 80, 60], [1, 256, 40, 30], [1, 512, 20, 15]
         # print("Detect.forward")
         if self.end2end:
             return self.forward_end2end(x)
@@ -356,20 +357,66 @@ class Pose(Detect):
         """
         super().__init__(nc, ch)
         self.kpt_shape = kpt_shape  # number of keypoints, number of dims (2 for x,y or 3 for x,y,visible)
-        self.nk = kpt_shape[0] * kpt_shape[1]  # number of keypoints total
+        self.nk = kpt_shape[0] * kpt_shape[1]  # number of keypoints total  例如 17*3=51
+        # self.nl=3
 
-        c4 = max(ch[0] // 4, self.nk)
+        c4 = max(ch[0] // 4, self.nk)   # max(128/4,51)=51 ch=(218,256,512)
         self.cv4 = nn.ModuleList(nn.Sequential(Conv(x, c4, 3), Conv(c4, c4, 3), nn.Conv2d(c4, self.nk, 1)) for x in ch)
+        """
+        接收来自三个不同尺度的特征图作为输入，并为每个尺度分别应用一个对应的处理序列（Sequential）。每个序列的作用是：
+        1.通道统一: 使用第一个3x3卷积将不同输入通道数（128, 256, 512）统一到一个固定的中间通道数（这里是51）。
+        2.特征提取: 使用第二个3x3卷积进一步提取特征。
+        3.最终预测: 使用最后的1x1卷积生成最终的、与任务相关的输出特征图（通道数仍为51）。
+        ModuleList(
+          (0): Sequential(
+            (0): Conv(
+              (conv): Conv2d(128, 51, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+              (act): SiLU(inplace=True)
+            )
+            (1): Conv(
+              (conv): Conv2d(51, 51, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+              (act): SiLU(inplace=True)
+            )
+            (2): Conv2d(51, 51, kernel_size=(1, 1), stride=(1, 1))
+          )
+          (1): Sequential(
+            (0): Conv(
+              (conv): Conv2d(256, 51, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+              (act): SiLU(inplace=True)
+            )
+            (1): Conv(
+              (conv): Conv2d(51, 51, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+              (act): SiLU(inplace=True)
+            )
+            (2): Conv2d(51, 51, kernel_size=(1, 1), stride=(1, 1))
+          )
+          (2): Sequential(
+            (0): Conv(
+              (conv): Conv2d(512, 51, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+              (act): SiLU(inplace=True)
+            )
+            (1): Conv(
+              (conv): Conv2d(51, 51, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+              (act): SiLU(inplace=True)
+            )
+            (2): Conv2d(51, 51, kernel_size=(1, 1), stride=(1, 1))
+          )
+        )
+        """
 
     def forward(self, x: list[torch.Tensor]) -> torch.Tensor | tuple:
         """Perform forward pass through YOLO model and return predictions."""
         bs = x[0].shape[0]  # batch size
-        kpt = torch.cat([self.cv4[i](x[i]).view(bs, self.nk, -1) for i in range(self.nl)], -1)  # (bs, 17*3, h*w)
-        x = Detect.forward(self, x)
+        # 每一层分别经过
+        # 输出形状 x-[[B 128 H1 W1],...] -> [[B 51 H1 W1],...] -> [[B 51 H1*W1],...] -> [B 51 sum(h*w)]
+        kpt = torch.cat([self.cv4[i](x[i]).view(bs, self.nk, -1) for i in range(self.nl)], -1)  # (bs, 17*3, sum(h*w))
+        x = Detect.forward(self, x)     # [[B 128 H1 W1],...] -> x[0]的形状：[B 4+1类别 sum(h*w)]即分类和回归输出    x[1]的形状：[[B 64+1类别 H1 W1],...]即每层特征层通道调整后输出？
         if self.training:
             return x, kpt
-        pred_kpt = self.kpts_decode(bs, kpt)
-        return torch.cat([x, pred_kpt], 1) if self.export else (torch.cat([x[0], pred_kpt], 1), (x[1], kpt))
+        pred_kpt = self.kpts_decode(bs, kpt)    # sigmoid处理？形状不变：[B 51 sum(h*w)] -> [B 51 sum(h*w)]
+        # [B 4+1类别 sum(h*w)] + [B 51 sum(h*w)] == [B 56 sum(h*w)]   --> 张量
+        # [[B 64+1类别 H1 W1],...] + (B, 17*3, sum(h*w)) --> 元组
+        return torch.cat([x, pred_kpt], 1) if self.export else (torch.cat([x[0], pred_kpt], 1), (x[1], kpt))    # 返回元组
 
     def kpts_decode(self, bs: int, kpts: torch.Tensor) -> torch.Tensor:
         """Decode keypoints from predictions."""
@@ -384,12 +431,14 @@ class Pose(Detect):
         else:
             y = kpts.clone()
             if ndim == 3:
-                if NOT_MACOS14:
-                    y[:, 2::ndim].sigmoid_()
+                # ::ndim 表示每隔 ndim 个元素取一个，即跳过 x, y, 取 v, 跳过下一个关键点的 x, y, 取下一个 v...
+                if NOT_MACOS14:     # 安全地使用 in-place 操作 sigmoid_()。
+                    y[:, 2::ndim].sigmoid_()    # y[:, 2::ndim] 选择所有关键点的第3个维度（可见性）。从第2个元素（即第一个关键点的可见性值v1）
                 else:  # Apple macOS14 MPS bug https://github.com/ultralytics/ultralytics/pull/21878
                     y[:, 2::ndim] = y[:, 2::ndim].sigmoid()
-            y[:, 0::ndim] = (y[:, 0::ndim] * 2.0 + (self.anchors[0] - 0.5)) * self.strides
-            y[:, 1::ndim] = (y[:, 1::ndim] * 2.0 + (self.anchors[1] - 0.5)) * self.strides
+            # TODO https://github.com/ultralytics/ultralytics/issues/8443
+            y[:, 0::ndim] = (y[:, 0::ndim] * 2.0 + (self.anchors[0] - 0.5)) * self.strides  # x
+            y[:, 1::ndim] = (y[:, 1::ndim] * 2.0 + (self.anchors[1] - 0.5)) * self.strides  # y
             return y
 
 

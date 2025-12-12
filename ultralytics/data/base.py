@@ -349,6 +349,7 @@ class BaseDataset(Dataset):
         bi = np.floor(np.arange(self.ni) / self.batch_size).astype(int)  # batch index
         nb = bi[-1] + 1  # number of batches
 
+        # 1. 按照长宽比(ar)对所有图片进行排序
         s = np.array([x.pop("shape") for x in self.labels])  # hw
         ar = s[:, 0] / s[:, 1]  # aspect ratio
         irect = ar.argsort()
@@ -359,13 +360,15 @@ class BaseDataset(Dataset):
         # Set training image shapes
         shapes = [[1, 1]] * nb
         for i in range(nb):
-            ari = ar[bi == i]
+            ari = ar[bi == i]   # # 获取当前 batch 内所有图片的长宽比
             mini, maxi = ari.min(), ari.max()
+            # 根据长宽比决定当前 Batch 是 "高瘦" 还是 "扁长"
             if maxi < 1:
                 shapes[i] = [maxi, 1]
             elif mini > 1:
                 shapes[i] = [1, 1 / mini]
 
+        # 3. 计算最终像素尺寸 (必须是 stride 的倍数)
         self.batch_shapes = np.ceil(np.array(shapes) * self.imgsz / self.stride + self.pad).astype(int) * self.stride
         self.batch = bi  # batch index of image
 
