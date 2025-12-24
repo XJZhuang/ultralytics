@@ -18,22 +18,24 @@ from ultralytics.utils import LOGGER
 if __name__ == '__main__':
     # 加载现有的xxx.pt模型
     # yolo_model_path = r"/home/zxj/ultralytics-switchgear/01_train_scripts/switchgear/train2/weights/best.pt"
-    yolo_model_path = r'D:\1_Python\fire-security-ai\fire_security\security\train_03\weights\best.pt'
+    # yolo_model_path = r'D:\1_Python\fire-security-ai\fire_security\security\train_03\weights\best.pt'
+    yolo_model_path = r'D:\1_Python\switchgear-ai\src\resources\predict_model\classification_detection.pt'
     # model = YOLO("yolo11x.pt")
     model = YOLO(yolo_model_path)
 
     # 指定图片文件夹的路径
-    image_folder = r"D:\1_Python\datasets\fire_security\images\train05"
+    # image_folder = r"D:\1_Python\datasets\fire_security\images\train05"
+    image_folder = r"D:\1_Python\datasets\switchgear\images\train06"
 
     # 批量对图片进行预测，并保存标签文件
     results = model.predict(
         source=image_folder,
         project=image_folder,
         name="labels_txt",
-        # classes=[0],    # person 的 类别ID
+        classes=[5],    # person 的 类别ID
         exist_ok=True,
         save_txt=True,
-        conf=0.8,    # 高置信度，只保留预测的准的框
+        conf=0.6,    # 高置信度，只保留预测的准的框
     )
 
     # 对每张图片进行预测，并保存标签文件（效率低）

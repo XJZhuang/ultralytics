@@ -200,8 +200,8 @@ class v8DetectionLoss:
         h = model.args  # hyperparameters
 
         m = model.model[-1]  # Detect() module
-        self.bce = nn.BCEWithLogitsLoss(reduction="none")
-        
+        # self.bce = nn.BCEWithLogitsLoss(reduction="none")
+        self.fl = FocalLoss()
         self.hyp = h
         self.stride = m.stride  # model strides tensor([ 8., 16., 32.])
         self.nc = m.nc  # number of classes     # 80
@@ -282,7 +282,8 @@ class v8DetectionLoss:
 
         # Cls loss
         # loss[1] = self.varifocal_loss(pred_scores, target_scores, target_labels) / target_scores_sum  # VFL way
-        loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
+        # loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
+        loss[1] = self.fl(pred_scores, gt_labels) / target_scores_sum  #
 
         # Bbox loss
         if fg_mask.sum():

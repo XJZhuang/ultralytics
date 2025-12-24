@@ -136,6 +136,7 @@ os.environ["KINETO_LOG_LEVEL"] = "5"  # suppress verbose PyTorch profiler output
 # Precompiled type tuples for faster isinstance() checks
 FLOAT_OR_INT = (float, int)
 STR_OR_PATH = (str, Path)
+LOG_PATH = ROOT.parents[0] / "logs"
 
 
 class DataExportMixin:
@@ -362,8 +363,9 @@ def plt_settings(rcparams=None, backend="Agg"):
             import matplotlib.pyplot as plt  # scope for faster 'import ultralytics'
 
             original_backend = plt.get_backend()
-            switch = backend.lower() != original_backend.lower()
-            if switch:
+            print(f"original_backend and be_set_backend-->{original_backend} -- {backend}")
+            switch = backend.lower() != original_backend.lower()  # 指定的后端与实际的后端是否相同
+            if switch:  # 不相同进行切换
                 plt.close("all")  # auto-close()ing of figures upon backend switching is deprecated since 3.8
                 plt.switch_backend(backend)
 
@@ -374,7 +376,8 @@ def plt_settings(rcparams=None, backend="Agg"):
             finally:
                 if switch:
                     plt.close("all")
-                    plt.switch_backend(original_backend)
+                    print(f"original_backend and et_backend-->{original_backend} -- {plt.get_backend()}")
+                    plt.switch_backend(original_backend)  # 恢复原有后端配置
             return result
 
         return wrapper
@@ -442,13 +445,34 @@ def set_logging(name="LOGGING_NAME", verbose=True):
     # Create and configure the StreamHandler with the appropriate formatter and level
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setFormatter(formatter)
-    stream_handler.setLevel(level)
+    stream_handler_level = logging.DEBUG  # 可设置不输出到控制台
+    # stream_handler_level = level
+    stream_handler.setLevel(stream_handler_level)
 
     # Set up the logger
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    # logger.setLevel(level)
+    logger.setLevel(logging.DEBUG)
     logger.addHandler(stream_handler)
     logger.propagate = False
+
+    # 增加下面的，将logging输出到文件持久化(将日志输出到文件)
+    import datetime
+    log_path = LOG_PATH
+    log_path.mkdir(parents=True, exist_ok=True)
+    dt = datetime.datetime.now().strftime('%Y-%m-%d')
+    log_file = (log_path / dt).with_suffix('.txt')  # 使用 with_suffix 确保正确的文件扩展名
+    print_handler = logging.FileHandler(filename=log_file, encoding='utf-8')  # FileHandler的mode参数默认为'a'
+    # formatter = logging.Formatter("%(asctime)s - %(filename)s [line:%(lineno)d] - %(levelname)s: %(message)s")
+    # formatter = logging.Formatter("%(asctime)s-%(filename)s[Thread:%(thread)d][line:%(lineno)d]-%(levelname)s:%(message)s")
+    formatter = logging.Formatter("%(asctime)s-%(filename)s[line:%(lineno)d]-%(levelname)s:%(message)s")
+    print_handler.setFormatter(formatter)
+    print_handler_level = logging.DEBUG  # 设置输出到log文件的级别
+    print_handler.setLevel(print_handler_level)
+    logger.addHandler(print_handler)
+
+    print(
+        f"log_path-->{os.path.abspath(log_path)}, stream_handler->{stream_handler_level}, print_handler->{print_handler_level}")
     return logger
 
 
@@ -1183,7 +1207,7 @@ class JSONDict(dict):
         try:
             if self.file_path.exists():
                 with open(self.file_path) as f:
-                    self.update(json.load(f))
+                    self.update(json.load(f))   # 加载 Roaming/Ultralytics/settings.json中的设置
         except json.JSONDecodeError:
             LOGGER.warning(f"Error decoding JSON from {self.file_path}. Starting with an empty dictionary.")
         except Exception as e:

@@ -258,7 +258,7 @@ if __name__ == '__main__':
     # -------------------------- 用户配置区 --------------------------
     DATASET_ROOT = r'D:\1_Python\datasets\liquids'  # 数据集根目录
     # TARGET_GROUPS = ['01', '04']  # 需处理的分组
-    TARGET_GROUPS = ['01']  # 需处理的分组
+    TARGET_GROUPS = ['02']  # 需处理的分组
 
     # 执行批量处理
     batch_process_groups(

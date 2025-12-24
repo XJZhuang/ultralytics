@@ -8,10 +8,9 @@
 @explain : 参数
 '''
 from ultralytics import YOLO
-
+from ultralytics.utils import LOGGER
 
 if __name__ == '__main__':
-
     model = YOLO("yolov8s.pt")
     # model = YOLO("yolov8s.yaml")
     # model = YOLO("yolov8n.yaml")
@@ -28,7 +27,7 @@ if __name__ == '__main__':
 
     for result in results:
         box = result.boxes
-        # print(box.xyxy)
+        LOGGER.info(box.xyxy)
         # print(box.conf)
         # print(box.cls)
         """

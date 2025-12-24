@@ -181,7 +181,7 @@ def print_statistics(subset_results, total_count, total_all, subset_type="指定
 # ========== 主函数（命令行调用） ==========
 def main():
     parser = argparse.ArgumentParser(description="统计指定子集的吸烟/未戴安全帽属性分布")
-    parser.add_argument("--root_dir", default=r"D:\1_Python\datasets\fire_security\labels_yolo+attr",
+    parser.add_argument("--root_dir", default=r"D:\1_Python\datasets\fire_security\labels_attr",
                         help="数据集根目录（包含所有子集目录，如train01、train03）")
     parser.add_argument("--train_subsets", nargs="+", default=["train01", "train03", "train04", "train05"],
                         help="要统计的训练集子集名称列表（如 --train_subsets train01 train03）")

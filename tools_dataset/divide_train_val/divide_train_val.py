@@ -113,11 +113,11 @@ def main():
     # 配置参数
     # root_path = r'D:\1_Python\datasets\switchgear'
     # root_path = r'D:\1_Python\datasets\knobs'
-    # root_path = r'D:\1_Python\datasets\liquids'
-    root_path = r'D:\1_Python\datasets\fire_security'
-    group_index = ['04', '05']
+    root_path = r'D:\1_Python\datasets\liquids'
+    # root_path = r'D:\1_Python\datasets\fire_security'
+    # group_index = ['06']
     # group_index = ['01', '03', '04']  # 分组索引
-    # group_index = ['01']  # 分组索引
+    group_index = ['02']  # 分组索引
     val_ratio = 0.2  # 验证集比例
 
     for group in group_index:
