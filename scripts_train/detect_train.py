@@ -10,7 +10,7 @@
 from ultralytics import YOLO
 
 # Load a model
-model = YOLO("yolo11n.yaml")  # build a new model from YAML
+model = YOLO("yolo11s.yaml").load("yolo11s.pt")  # build a new model from YAML
 
 
 # Train the model

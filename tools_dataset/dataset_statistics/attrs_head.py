@@ -380,11 +380,11 @@ class AttributeAnalyzer:
             self._plot_charts(output_dir, prefix, df)
     def _plot_charts(self, output_dir, prefix, df):
         # 过滤掉聚合行，只画 4 个基础组合
-        plot_df = df[~df['属性分组'].str.contains("★|>>>")]
+        plot_df = df[~df['属性分组'].str.contains("★|>>>")].copy()
         if plot_df.empty: return
 
         sns.set_theme(style="whitegrid")
-        plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial']
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial']
         plt.rcParams['axes.unicode_minus'] = False
 
         fig, axes = plt.subplots(1, 2, figsize=(16, 8))
@@ -402,7 +402,8 @@ class AttributeAnalyzer:
                         legend=False)
             axes[1].set_title("各属性目标的平均画面占比 (%)")
             axes[1].set_xlabel("占比 (%) - 越小越难检测")
-        except:
+        except Exception as e:
+            print(f"绘图出错: {e}")
             pass
 
         plt.tight_layout()

@@ -13,7 +13,12 @@ from ultralytics import YOLO, RTDETR
 # Ultralytics 的 YOLO 模型加载预训练权重（.pt 文件）后，默认处于 推理 / 评估模式（eval mode）
 # model = YOLO("yolov8s.pt")  # YOLOv8s summary: 129 layers, 11,166,560 parameters, 0 gradients, 28.8 GFLOPs
 # model = YOLO("yolov8s.yaml")  # YOLOv8s summary: 129 layers, 11,166,560 parameters, 11,166,544 gradients, 28.8 GFLOPs
-model = YOLO("yolov8n.yaml")  #
+# model = YOLO("yolov8n.yaml")  #
+
+# model = YOLO("yolo11-P2.yaml")  # YOLO11-P2 summary: 216 layers, 9,575,552 parameters, 9,575,536 gradients, 29.0 GFLOPs
+model = YOLO("yolo11s.yaml")  # YOLO11s summary: 181 layers, 9,458,752 parameters, 9,458,736 gradients, 21.7 GFLOPs
+
+
 # model = YOLO("yolov8l.yaml")  # YOLOv8l summary: 209 layers, 43,691,520 parameters, 43,691,504 gradients, 165.7 GFLOPs
 
 

@@ -9,6 +9,8 @@
 '''
 # !/usr/bin/env python
 # -*- coding: UTF-8 -*-
+from ultralytics.utils import LOGGER
+
 '''
 @Project ：Dataset Analysis
 @File    ：dataset_statistic_dynamic.py
@@ -44,19 +46,16 @@ class DatasetAnalyzer:
             'empty_images': 0,
             'total_instances': 0,
             'img_sizes': [],
-            # 新增：记录每张图的目标数，用于密度分析
-            'instances_per_img': [],
+            'instances_per_img': [],    # 记录每张图的目标数，用于密度分析
             'class_stats': defaultdict(lambda: {
                 'count': 0,
                 'images': 0,
                 'areas': [],  # 绝对像素面积
                 'rel_areas': [],  # 相对面积比例 (Sqrt(ObjArea) / Sqrt(ImgArea))
                 'ratios': [],  # 宽高比
-                # 新增：记录中心点坐标用于偏见分析
-                'center_xs': [],
+                'center_xs': [],    # 记录中心点坐标用于偏见分析
                 'center_ys': [],
-                # --- 新增：记录每个实例所属图片的分辨率 ---
-                'parent_img_w': [],
+                'parent_img_w': [], # 记录每个实例所属图片的分辨率
                 'parent_img_h': []
             }),
             # 使用相对概念统计尺度分布
@@ -90,8 +89,7 @@ class DatasetAnalyzer:
                     img_w, img_h = img.size
                     self.stats['img_sizes'].append((img_w, img_h))
 
-                    # 计算当前图片的基准尺度 (几何平均值 Sqrt(Area))
-                    # 比如 1920x1080 -> 约 1440
+                    # 计算当前图片的基准尺度 (几何平均值 Sqrt(Area)) 比如 1920x1080 -> 约 1440
                     img_scale_base = math.sqrt(img_w * img_h)
             except Exception as e:
                 print(f"无法读取图片: {img_path}, 错误: {e}")
@@ -119,6 +117,7 @@ class DatasetAnalyzer:
                             if len(parts) >= 5:
                                 cx, cy, w_norm, h_norm = map(float, parts[1:5])
                             else:
+                                LOGGER.error(f"标签格式错误: {label_path}")
                                 cx, cy, w_norm, h_norm = 0, 0, 0, 0
 
                             if 0 <= cls_id < len(self.class_names):
@@ -130,8 +129,6 @@ class DatasetAnalyzer:
                                 classes_in_this_image.add(cls_name)
 
                                 if w_norm > 0 and h_norm > 0:
-                                    # --- 核心计算逻辑 ---
-
                                     # A. 绝对像素计算
                                     real_w_px = w_norm * img_w
                                     real_h_px = h_norm * img_h
@@ -147,7 +144,7 @@ class DatasetAnalyzer:
                                     self.stats['class_stats'][cls_name]['center_xs'].append(cx)
                                     self.stats['class_stats'][cls_name]['center_ys'].append(cy)
 
-                                    # --- 新增：记录分辨率来源 ---
+                                    # 记录分辨率来源 ---
                                     self.stats['class_stats'][cls_name]['parent_img_w'].append(img_w)
                                     self.stats['class_stats'][cls_name]['parent_img_h'].append(img_h)
 
@@ -169,6 +166,8 @@ class DatasetAnalyzer:
                                         self.stats['scale_dist']['medium'] += 1
                                     else:
                                         self.stats['scale_dist']['large'] += 1
+                            else:
+                                LOGGER.error(f"标签格式错误: {label_path}")
                         except Exception:
                             pass
 

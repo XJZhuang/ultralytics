@@ -1235,12 +1235,7 @@ class JSONDict(dict):
         try:
             if self.file_path.exists():
                 with open(self.file_path) as f:
-<<<<<<< HEAD
                     self.update(json.load(f))   # 加载 Roaming/Ultralytics/settings.json中的设置
-=======
-                    # Use the base dict update to avoid persisting during reads
-                    super().update(json.load(f))
->>>>>>> 72559ff85d304dcf59ac9376b6b157c269ac0465
         except json.JSONDecodeError:
             LOGGER.warning(f"Error decoding JSON from {self.file_path}. Starting with an empty dictionary.")
         except Exception as e:

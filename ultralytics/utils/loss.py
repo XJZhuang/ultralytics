@@ -15,6 +15,34 @@ from ultralytics.utils.torch_utils import autocast
 
 from .metrics import bbox_iou, probiou
 from .tal import bbox2dist
+from .metrics import bbox_iou, probiou
+
+
+# NWD Loss 计算函数
+def wasserstein_loss(pred, target, eps=1e-7, constant=12.8):
+    r"""
+
+    Args:
+            pred (Tensor): Predicted bboxes of format (x_min, y_min, x_max, y_max),
+                shape (n, 4).
+            target (Tensor): Corresponding gt bboxes, shape (n, 4).
+            eps (float): Eps to avoid log(0).
+            constant: NWD 作者针对 AI-TOD（微小目标数据集）推荐的默认参数
+    Return:
+    <Tensor: Loss tensor.>
+    """
+    b1_x1, b1_y1, b1_x2, b1_y2 = pred.chunk(4, -1)
+    b2_x1, b2_y1, b2_x2, b2_y2 = target.chunk(4, -1)
+    w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1 + eps
+    w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1 + eps
+    b1_x_center, b1_y_center = b1_x1 + w1 / 2, b1_y1 + h1 / 2
+    b2_x_center, b2_y_center = b2_x1 + w2 / 2, b2_y1 + h2 / 2
+
+    center_distance = (b1_x_center - b2_x_center) ** 2 + (b1_y_center - b2_y_center) ** 2 + eps
+    wh_distance = ((w1 - w2) ** 2 + (h1 - h2) ** 2) / 4     # 宽高偏差
+
+    wasserstein_2 = center_distance + wh_distance
+    return torch.exp(-torch.sqrt(wasserstein_2) / constant)     # 非线性归一化
 
 
 class VarifocalLoss(nn.Module):
@@ -108,9 +136,11 @@ class DFLoss(nn.Module):
 class BboxLoss(nn.Module):
     """Criterion class for computing training losses for bounding boxes."""
 
-    def __init__(self, reg_max: int = 16):
+    def __init__(self, reg_max: int = 16, use_nwd_loss=True, nwd_ratio=0.5):
         """Initialize the BboxLoss module with regularization maximum and DFL settings."""
         super().__init__()
+        self.nwd_ratio = nwd_ratio
+        self.use_nwd_loss = use_nwd_loss
         self.dfl_loss = DFLoss(reg_max) if reg_max > 1 else None
 
     def forward(
@@ -125,9 +155,13 @@ class BboxLoss(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute IoU and DFL losses for bounding boxes."""
         weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1)
-        iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)
+        iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)     # 计算CIoU
         loss_iou = ((1.0 - iou) * weight).sum() / target_scores_sum
 
+        if self.use_nwd_loss:
+            nwd = wasserstein_loss(pred_bboxes[fg_mask], target_bboxes[fg_mask])
+            nwd_loss = ((1.0 - nwd) * weight).sum() / target_scores_sum
+            loss_iou = (1 - self.nwd_ratio) * loss_iou + self.nwd_ratio * nwd_loss  # 加权
         # DFL loss
         if self.dfl_loss:
             target_ltrb = bbox2dist(anchor_points, target_bboxes, self.dfl_loss.reg_max - 1)
@@ -200,8 +234,10 @@ class v8DetectionLoss:
         h = model.args  # hyperparameters
 
         m = model.model[-1]  # Detect() module
-        # self.bce = nn.BCEWithLogitsLoss(reduction="none")
-        self.fl = FocalLoss()
+        self.bce = nn.BCEWithLogitsLoss(reduction="none")
+        # self.fl = FocalLoss()
+        # self.varifocal_loss = VarifocalLoss(gamma=2.0, alpha=0.75)
+
         self.hyp = h
         self.stride = m.stride  # model strides tensor([ 8., 16., 32.])
         self.nc = m.nc  # number of classes     # 80
@@ -210,9 +246,11 @@ class v8DetectionLoss:
         self.device = device
 
         self.use_dfl = m.reg_max > 1    # True
+        self.use_nwd_loss = self.hyp.use_nwd_loss
+        self.nwd_ratio = self.hyp.nwd_ratio
 
         self.assigner = TaskAlignedAssigner(topk=tal_topk, num_classes=self.nc, alpha=0.5, beta=6.0)    # tal_topk=10
-        self.bbox_loss = BboxLoss(m.reg_max).to(device)
+        self.bbox_loss = BboxLoss(m.reg_max, self.use_nwd_loss, self.nwd_ratio).to(device)
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
 
     def preprocess(self, targets: torch.Tensor, batch_size: int, scale_tensor: torch.Tensor) -> torch.Tensor:
@@ -280,10 +318,13 @@ class v8DetectionLoss:
 
         target_scores_sum = max(target_scores.sum(), 1)
 
+        # VFL 需要一个 binary label 来区分正负样本用于加权计算 target_scores > 0 的地方就是正样本
+        # target_labels = (target_scores > 0).float()
+
         # Cls loss
         # loss[1] = self.varifocal_loss(pred_scores, target_scores, target_labels) / target_scores_sum  # VFL way
-        # loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
-        loss[1] = self.fl(pred_scores, gt_labels) / target_scores_sum  #
+        loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
+        # loss[1] = self.fl(pred_scores, gt_labels) / target_scores_sum  #
 
         # Bbox loss
         if fg_mask.sum():

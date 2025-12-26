@@ -146,7 +146,7 @@ class LabelMeShapeSorter:
 
 def main():
     parser = argparse.ArgumentParser(description='LabelMe JSON标注排序工具（按类别+坐标排序）')
-    parser.add_argument('--json-dir', help='LabelMe JSON文件所在目录（必填）', default=r"D:\1_Python\datasets\fire_security\labels_labelme\train03")
+    parser.add_argument('--json-dir', help='LabelMe JSON文件所在目录（必填）', default=r"D:\1_Python\datasets\fire_security\labels_labelme\train06")
 
     args = parser.parse_args()
 

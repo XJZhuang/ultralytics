@@ -11,15 +11,19 @@ from ultralytics import YOLO
 from ultralytics.utils import LOGGER
 
 if __name__ == '__main__':
-    model = YOLO("yolov8s.pt")
+    # model = YOLO("yolov8s.pt")
     # model = YOLO("yolov8s.yaml")
     # model = YOLO("yolov8n.yaml")
+
+    # model = YOLO("yolo11s.yaml").load("yolo11s.pt")
+    model = YOLO("yolo11-P2.yaml")
+
 
     source = r"../ultralytics/assets/zidane.jpg"
 
     results = model(
         source,
-        save=True,
+        # save=True,
         # stream=True,
         project="yolo-detect",
         verbose=False,

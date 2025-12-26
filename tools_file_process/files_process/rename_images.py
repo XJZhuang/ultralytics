@@ -207,15 +207,15 @@ def copy_and_rename_for_fastcocoeval(input_dir, output_dir="coco_format_datetime
 def main_01():
     # --- 配置区域 ---
     # 设置你要扫描的原始图片文件夹路径
-    scan_directory = r'D:\1_Python\datasets\fire_security\images\train01_origin'
+    scan_directory = r'D:\1_Python\datasets\fire_security\images\train06-1'
     # 设置输出目录（用于存放复制和重命名后的图片）
-    output_directory = r"D:\1_Python\datasets\fire_security\images\train01"
+    output_directory = r"D:\1_Python\datasets\fire_security\images\train06"
 
     if not os.path.isdir(scan_directory):
         print(f"错误：目录 '{scan_directory}' 不存在或不是一个有效的目录。")
         return
 
-    copy_and_rename_for_fastcocoeval(scan_directory, output_directory)
+    # copy_and_rename_for_fastcocoeval(scan_directory, output_directory)
 
 
 if __name__ == "__main__":
